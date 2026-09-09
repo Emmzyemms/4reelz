@@ -1,6 +1,6 @@
-  # ClipCash UI
+  # 4Reelsclip
 
-Next.js 15 frontend for ClipCash — an AI-powered video clipping platform.
+Next.js 15 frontend for 4Reelsclip — an AI-powered video clipping platform.
 
 ---
 
