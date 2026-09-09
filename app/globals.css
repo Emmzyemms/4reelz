@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+.root {
+  background-color: #080C0B;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+@theme {
+  --color-brand: #00E58F;
+  --color-brand-hover: #00DE8A;
+  --color-background: #080C0B;
+  --color-surface: #101614;
+  --color-surface-hover: #161D1A;
+  --color-border: #1E2923;
+  --color-input: #0B100E;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: #ffffff;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Micro-animations and utility classes for effects */
+@layer utilities {
+  .radial-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle at 80% 20%, rgba(0, 229, 143, 0.15), transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(0, 229, 143, 0.05), transparent 40%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .glass-card {
+    background: rgba(16, 22, 20, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .shake {
+    animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  }
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@layer utilities {
+  .animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+  }
+}
+
