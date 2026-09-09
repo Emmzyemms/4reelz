@@ -7,11 +7,6 @@ export const getDashboardData = async () => {
       apiClient.get('/platforms')
     ]);
 
-    console.log("[getDashboardData] API responses:", {
-      videos: videosRes.data,
-      platforms: platformsRes.data
-    });
-
     // Backend returns { data: [...], total, page, limit }
     const videos = videosRes.data.data || (Array.isArray(videosRes.data) ? videosRes.data : []);
     // Backend returns { success, connected, platforms: string[], accountCount }
@@ -80,8 +75,7 @@ export const getProjectsData = async (videoId?: string, page = 1, limit = 20) =>
     if (videoId) {
       try {
         const videoRes = await apiClient.get(`/videos/${videoId}`);
-        console.log("[getProjectsData] GET /videos/:id response:", videoRes.data);
-        
+
         // If video has clips directly, use those
         if (videoRes.data?.clips && Array.isArray(videoRes.data.clips) && videoRes.data.clips.length > 0) {
           const clips = videoRes.data.clips;
@@ -96,8 +90,8 @@ export const getProjectsData = async (videoId?: string, page = 1, limit = 20) =>
             clipUrl: clip.clipUrl || null,
           }));
         }
-      } catch (err) {
-        console.log("[getProjectsData] GET /videos/:id failed, trying next approach:", err);
+      } catch {
+        // GET /videos/:id failed — fall through to clips endpoint
       }
     }
     
@@ -107,7 +101,6 @@ export const getProjectsData = async (videoId?: string, page = 1, limit = 20) =>
       : `/clips?page=${page}&limit=${limit}`;
       
     const response = await apiClient.get(endpoint);
-    console.log("[getProjectsData] API response:", response.data);
     // Backend returns { data: [...], total, page, limit } or plain array
     const clips = response.data.data || (Array.isArray(response.data) ? response.data : []);
 
@@ -247,13 +240,14 @@ export const postClipToPlatforms = async (clipId: string, platforms: string[]) =
 
 /**
  * GET /auth/bnb/challenge?bnbAddress=0x…
- * Returns { nonce, message } — the message is what the user signs.
+ * Returns { challenge, message, expiresIn }.
+ * The nonce is embedded in the challenge string: extract with /nonce:\s*(\S+)/i
  */
 export const getBnbChallenge = async (bnbAddress: string) => {
   const response = await apiClient.get('/auth/bnb/challenge', {
     params: { bnbAddress },
   });
-  return response.data as { nonce: string; message: string };
+  return response.data as { challenge: string; message: string; expiresIn: string };
 };
 
 /**
@@ -276,13 +270,13 @@ export const loginWithBnb = async (
 
 /**
  * GET /auth/bnb/connect/challenge
- * Returns { nonce, message } for connecting a BNB wallet to an existing account.
+ * Returns { challenge, message, expiresIn } for connecting a BNB wallet to an existing account.
  */
 export const getBnbConnectChallenge = async (bnbAddress: string) => {
   const response = await apiClient.get('/auth/bnb/connect/challenge', {
     params: { bnbAddress },
   });
-  return response.data as { nonce: string; message: string };
+  return response.data as { challenge: string; message: string; expiresIn: string };
 };
 
 /**

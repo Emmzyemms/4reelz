@@ -29,9 +29,13 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  /** Call setUser after login/signup. Pass skipRedirect=true when you are
-   *  handling navigation yourself (e.g. new signup → /onboarding). */
-  setUser: (user: User | null, skipRedirect?: boolean) => void;
+  /**
+   * Call after login/signup.
+   * - Pass `redirectTo` to have AuthProvider navigate *after* the user state
+   *   has committed (avoids the race where the guard sees null+protected-path).
+   * - Pass neither to let the guard handle routing automatically.
+   */
+  setUser: (user: User | null, redirectTo?: string | false) => void;
   logout: () => void;
   isLoading: boolean;
 }
@@ -48,9 +52,8 @@ export const useAuth = () => useContext(AuthContext);
 function AuthProviderInner({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // When AuthForm handles routing itself (e.g. new signup → /onboarding),
-  // it passes skipRedirect=true so this effect doesn't fight it.
-  const skipRedirectRef = useRef(false);
+  // Pending destination set by setUser — AuthProvider pushes after state commits.
+  const pendingRedirectRef = useRef<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -74,13 +77,19 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     fetchUser();
   }, []);
 
-  // Navigation guard — runs whenever auth state or route changes
+  // Navigation guard — runs whenever auth state or route changes.
   useEffect(() => {
     if (isLoading) return;
 
-    // If AuthForm explicitly handled routing, skip this effect once
-    if (skipRedirectRef.current) {
-      skipRedirectRef.current = false;
+    // If setUser was called with an explicit destination, honour that and
+    // clear the pending redirect so we don't loop.
+    if (pendingRedirectRef.current !== null) {
+      const dest = pendingRedirectRef.current;
+      pendingRedirectRef.current = null;
+      // "__suppress__" means caller wants no navigation at all
+      if (dest !== "__suppress__") {
+        router.push(dest);
+      }
       return;
     }
 
@@ -96,7 +105,6 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
       if (isGuestPath) {
         router.push("/dashboard");
       }
-      // All other paths (including /onboarding): leave the user where they are
     } else {
       const protectedPaths = [
         "/dashboard",
@@ -117,13 +125,22 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
   }, [user, isLoading, pathname, searchParams, router]);
 
   /**
-   * setUser — called by AuthForm after login or signup.
-   * Pass skipRedirect=true when you are handling navigation yourself
-   * (e.g. new signup → router.push("/onboarding")).
+   * setUser — called by login/signup handlers.
+   *
+   * @param newUser  The authenticated user (or null on logout).
+   * @param redirectTo
+   *   - A path string (e.g. "/dashboard"): AuthProvider will push to that path
+   *     *after* the user state has committed, eliminating the race condition.
+   *   - `false`: suppress all automatic navigation (caller handles it).
+   *   - Omitted / undefined: let the navigation guard decide automatically.
    */
-  const setUser = (newUser: User | null, skipRedirect = false) => {
-    if (skipRedirect) {
-      skipRedirectRef.current = true;
+  const setUser = (newUser: User | null, redirectTo?: string | false) => {
+    if (typeof redirectTo === "string") {
+      // Store destination — the useEffect above will push once state commits.
+      pendingRedirectRef.current = redirectTo;
+    } else if (redirectTo === false) {
+      // Caller is handling navigation; suppress the guard for this render.
+      pendingRedirectRef.current = "__suppress__";
     }
     setUserState(newUser);
   };
@@ -134,14 +151,11 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     } finally {
-      // Disconnect wallet so the address is cleared from localStorage.
-      // This is a no-op if no wallet was connected (email users).
       try {
         await disconnectWallet();
       } catch {
         // ignore
       }
-      // Clear the BNB wallet address from localStorage
       if (typeof window !== "undefined") {
         localStorage.removeItem("clipcash_bnb_address");
       }

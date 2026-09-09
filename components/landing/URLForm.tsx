@@ -7,15 +7,75 @@ import apiClient from "@/lib/apiClient";
 import { saveActiveJob } from "@/lib/processingStore";
 import { useYouTubeImport, isYouTubeUrl } from "@/lib/useYouTubeImport";
 import WalletButton from "@/components/shared/WalletButton";
+import { useToast } from "@/components/shared/ToastProvider";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function URLForm() {
   const router = useRouter();
+  const { toast } = useToast();
+  const { setUser } = useAuth();
+
   const [url,   setUrl]   = useState("");
   const [error, setError] = useState("");
 
   const { state: ytState, run: runYouTube, reset: resetYouTube } = useYouTubeImport();
   const ytBusy  = ["fetching-info", "downloading", "uploading"].includes(ytState.phase);
   const anyBusy = ytBusy;
+
+  // ── Wallet connect on landing page ─────────────────────────────────────────
+  // If the wallet has a linked account → sign in and redirect to dashboard.
+  // If the wallet has no account (401)  → toast and send to /signup.
+  const handleLandingWalletConnect = async (address: string) => {
+    try {
+      // 1. Get challenge
+      const challengeRes = await apiClient.get("/auth/bnb/challenge", {
+        params: { bnbAddress: address },
+      });
+      const { challenge } = challengeRes.data;
+      if (!challenge) throw new Error("No challenge returned.");
+
+      const nonceMatch = challenge.match(/nonce:\s*(\S+)/i);
+      const nonce = nonceMatch?.[1] ?? null;
+      if (!nonce) throw new Error("Could not parse nonce.");
+
+      // 2. Sign
+      const { signAuthMessage } = await import("@/lib/bnbWallet");
+      const signature = await signAuthMessage(challenge, address);
+
+      // 3. Attempt login
+      const loginRes = await apiClient.post("/auth/bnb/login", {
+        bnbAddress: address,
+        nonce,
+        signature,
+      });
+
+      // Account exists — let AuthProvider navigate after state commits.
+      const destination = loginRes.data.redirect ?? "/dashboard";
+      setUser(loginRes.data.user, destination);
+
+    } catch (err: any) {
+      const status: number = err?.response?.status ?? 0;
+      const isNewWallet = status === 401 || status === 404;
+
+      if (isNewWallet) {
+        // No account linked to this wallet — prompt them to sign up
+        toast(
+          "No account found for this wallet. Please create an account first.",
+          "info"
+        );
+      } else if (
+        err?.code === 4001 ||
+        err?.message?.toLowerCase().includes("user rejected") ||
+        err?.message?.toLowerCase().includes("user denied")
+      ) {
+        // User cancelled MetaMask — no message needed
+      } else {
+        const raw: string = err?.response?.data?.message ?? err?.message ?? "Wallet connection failed.";
+        const msg = Array.isArray(raw) ? raw[0] : raw;
+        toast(msg, "error");
+      }
+    }
+  };
 
   const isSupported = (val: string): boolean => {
     try {
@@ -45,14 +105,14 @@ export default function URLForm() {
 
     // ── YouTube: 5-step pipeline ───────────────────────────────────────────
     if (isYouTubeUrl(trimmed)) {
-      // Landing page has no platform selector — default to tiktok
-      const videoId = await runYouTube(trimmed, "tiktok");
-      if (videoId) router.push(`/dashboard/processing?videoId=${videoId}`);
-      // errors surface via ytState.error panel below
+      const result = await runYouTube(trimmed, "tiktok");
+      if ("videoId" in result && result.videoId) {
+        router.push(`/dashboard/processing?videoId=${result.videoId}`);
+      }
       return;
     }
 
-    // ── TikTok / Vimeo: existing from-url path (unchanged) ────────────────
+    // ── TikTok / Vimeo ────────────────────────────────────────────────────
     try {
       const response = await apiClient.post("/videos/from-url", {
         url:             trimmed,
@@ -74,7 +134,6 @@ export default function URLForm() {
     }
   };
 
-  // Show the YouTube panel whenever the hook has left idle/done
   const showYtPanel = ytState.phase !== "idle" && ytState.phase !== "done";
 
   return (
@@ -106,15 +165,13 @@ export default function URLForm() {
             : "Clip Now"}
         </button>
 
-        <WalletButton />
+        <WalletButton onConnect={handleLandingWalletConnect} />
       </form>
 
-      {/* Generic error (TikTok / Vimeo) */}
       {error && (
         <p className="text-red-500 text-xs ml-1">{error}</p>
       )}
 
-      {/* YouTube import progress / error panel */}
       {showYtPanel && (
         <div className={`rounded-2xl border px-4 py-3 space-y-2 transition-all ${
           ytState.phase === "error"

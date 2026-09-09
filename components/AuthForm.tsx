@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "./AuthProvider";
-import { useRouter } from "next/navigation";
 import { z } from "zod";
 import apiClient from "@/lib/apiClient";
 import WalletButton from "@/components/shared/WalletButton";
@@ -41,7 +40,6 @@ interface AuthFormProps {
 
 export default function AuthForm({ mode = "login" }: AuthFormProps) {
   const { setUser } = useAuth();
-  const router = useRouter();
 
   const [currentMode, setCurrentMode] = useState<"login" | "signup">(mode);
   const [email, setEmail] = useState("");
@@ -112,8 +110,10 @@ export default function AuthForm({ mode = "login" }: AuthFormProps) {
         signature,
       });
 
-      setUser(loginRes.data.user);
-      router.push(loginRes.data.redirect ?? "/dashboard");
+      // Push to destination — AuthProvider's effect handles the actual
+      // router.push *after* user state commits, so no race condition.
+      const destination = loginRes.data.redirect ?? "/dashboard";
+      setUser(loginRes.data.user, destination);
     } catch (err: any) {
       console.error("BNB wallet auth error:", err);
       const backendMessage =
@@ -160,11 +160,9 @@ export default function AuthForm({ mode = "login" }: AuthFormProps) {
       const { data: user } = await apiClient.get("/users/me");
 
       if (currentMode === "login") {
-        setUser(user);
-        router.push("/dashboard");
+        setUser(user, "/dashboard");
       } else {
-        setUser(user, true); // skipRedirect=true
-        router.push("/onboarding");
+        setUser(user, "/onboarding");
       }
     } catch (err: any) {
       if (err.response?.status === 400) {

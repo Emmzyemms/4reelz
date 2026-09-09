@@ -190,10 +190,7 @@ function ProcessingContent() {
 
     // ── SSE primary ────────────────────────────────────────────────────────
     const connectSSE = () => {
-      // Dedicated SSE proxy — streams bytes without buffering
       const url = `/api/sse/events/processing-progress/${videoId}`;
-      console.log("[sse] connecting →", url);
-
       const es = new EventSource(url);
       esRef.current = es;
 
@@ -201,7 +198,7 @@ function ProcessingContent() {
       const resetSilence = () => {
         if (silenceRef.current) clearTimeout(silenceRef.current);
         silenceRef.current = setTimeout(() => {
-          console.warn("[sse] silence timeout — switching to polling");
+        console.warn("[sse] silence timeout — switching to polling");
           es.close();
           startPolling();
         }, SSE_SILENCE_TIMEOUT);
@@ -209,16 +206,14 @@ function ProcessingContent() {
       resetSilence();
 
       es.onopen = () => {
-        console.log("[sse] connected");
         setStatusMsg("AI engine connected — analyzing your video…");
         resetSilence();
       };
 
       es.onmessage = (event) => {
-        resetSilence(); // got a heartbeat / data — reset watchdog
+        resetSilence();
         try {
           const data = JSON.parse(event.data);
-          console.log("[sse] event:", data);
 
           if (typeof data.progress === "number") {
             setProgress(data.progress);

@@ -354,7 +354,6 @@ export function useYouTubeImport() {
         }
 
         // ── Fallback: Try backend download if browser download/info failed ─
-        console.log("Browser download failed, trying backend fallback:", err.message);
         
         try {
           set({ phase: "fetching-info", progress: 0, label: "Processing video on server…" });

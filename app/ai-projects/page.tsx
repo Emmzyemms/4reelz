@@ -32,11 +32,6 @@ async function getAllClips() {
   const response = await apiClient.get("/clips/feed?page=1&limit=100");
   const raw = response.data.data ?? (Array.isArray(response.data) ? response.data : []);
 
-  if (raw.length > 0) {
-    console.log("[feed] sample clip keys:", Object.keys(raw[0]));
-    console.log("[feed] full first clip:", JSON.stringify(raw[0]));
-  }
-
   // First pass — map what the feed gives us
   const clips: any[] = raw.map((clip: any) => {
     const score = clip.viralScore ?? clip.score ?? 0;
@@ -78,10 +73,6 @@ async function getAllClips() {
     };
   });
 
-  console.log("[feed] after first pass, clips missing address:",
-    clips.filter((c) => !c.creatorAddress).map((c) => c.id)
-  );
-
   // Second pass — fetch /clips/:id/info for every clip that still has no address.
   // Run all requests in parallel (batched at 10) and collect updated versions.
   const missingIdx = clips
@@ -99,7 +90,6 @@ async function getAllClips() {
             const res = await apiClient.get(`/clips/${clip.id}/info`);
             const info = res.data;
             const owner = info?.owner;
-            console.log(`[feed] /clips/${clip.id}/info owner:`, JSON.stringify(owner));
 
             // Accept every field name the backend might use
             const addr =
@@ -118,15 +108,13 @@ async function getAllClips() {
                 tippingEnabled: info.tippingEnabled ?? true,
               };
             }
-          } catch (e: any) {
-            console.warn(`[feed] /clips/${clip.id}/info failed:`, e?.response?.status);
+          } catch {
+            // /clips/:id/info failed — skip, clip shows without creator address
           }
         })
       );
     }
   }
-
-  console.log("[feed] final clips with address:", clips.filter((c) => c.creatorAddress).length, "/", clips.length);
 
   // Return a new array so React Query always sees a fresh reference
   return [...clips];

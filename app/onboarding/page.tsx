@@ -92,9 +92,11 @@ function OnboardingInner() {
         throw new Error("Signup successful but user data is missing.");
       }
 
-      // Wallet accounts go straight to dashboard
-      setUser(newUser);
-      router.push(signupRes.redirect ?? "/dashboard");
+      // Wallet accounts go straight to dashboard.
+      // Pass the destination to setUser so AuthProvider navigates after
+      // state commits — no race condition, no hard refresh needed.
+      const destination = signupRes.redirect ?? "/dashboard";
+      setUser(newUser, destination);
     } catch (err: any) {
       console.error("BNB wallet onboarding error:", err);
       const backendMessage = err.response?.data?.message || err.response?.data?.error;
@@ -135,8 +137,7 @@ function OnboardingInner() {
     if (!user) return;
     setLoading(true);
     try {
-      setUser({ ...user, onboardingStep: 3 });
-      router.push("/dashboard");
+      setUser({ ...user, onboardingStep: 3 }, "/dashboard");
     } finally {
       setLoading(false);
     }

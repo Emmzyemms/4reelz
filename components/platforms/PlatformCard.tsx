@@ -77,9 +77,7 @@ export default function PlatformCard({ name, description, icon: Icon, status, ct
     setConfirmDisconnect(false);
     setConnectError(null);
     try {
-      // Backend is case-insensitive but docs show uppercase — send uppercase to be safe
-      const response = await apiClient.delete(`/platforms/${platformKey.toUpperCase()}`);
-      console.log(`[PlatformCard] DELETE /platforms/${platformKey.toUpperCase()} →`, response.status, response.data);
+      await apiClient.delete(`/platforms/${platformKey.toUpperCase()}`);
       onDisconnected?.(platformKey);
     } catch (error: any) {
       const httpStatus = error?.response?.status;

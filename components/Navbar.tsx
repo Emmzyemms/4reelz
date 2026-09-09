@@ -30,14 +30,14 @@ export default function Navbar({ variant = "landing", sticky = false }: NavbarPr
   }, []);
 
   const landingLinks = [
-    { label: "Pricing", href: "#" },
-    { label: "Showcase", href: "#" },
-    { label: "Docs", href: "#" },
+    { label: "Pricing",  href: "#",    disabled: true  },
+    { label: "Showcase", href: "#",    disabled: true  },
+    { label: "Docs",     href: "/docs", disabled: false },
   ];
 
   const dashboardLinks = [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Create Clips", href: "/clips" },
+    { label: "Dashboard",    href: "/dashboard", disabled: false },
+    { label: "Create Clips", href: "/clips",     disabled: false },
   ];
 
   const isDashboard = variant === "dashboard" || !!user;
@@ -53,6 +53,21 @@ export default function Navbar({ variant = "landing", sticky = false }: NavbarPr
         <div className="hidden lg:flex items-center gap-10">
           {(isDashboard ? dashboardLinks : landingLinks).map((link) => {
             const isActive = pathname === link.href;
+            const isDisabled = "disabled" in link && link.disabled;
+            if (isDisabled) {
+              return (
+                <span
+                  key={link.label}
+                  className="text-[13px] font-bold uppercase tracking-wider py-1 text-[#2A3B34] cursor-not-allowed select-none flex items-center gap-1.5"
+                  title="Coming soon"
+                >
+                  {link.label}
+                  <span className="text-[8px] font-black text-[#2A3B34] bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 rounded-full uppercase tracking-widest leading-none normal-case">
+                    Soon
+                  </span>
+                </span>
+              );
+            }
             return (
               <Link
                 key={link.label}
@@ -60,11 +75,10 @@ export default function Navbar({ variant = "landing", sticky = false }: NavbarPr
                 className={`text-[13px] font-bold uppercase tracking-wider relative py-1 transition-all duration-300 ${
                   isActive ? "text-white" : "text-[#5A6F65] hover:text-white"
                 }`}
-                aria-disabled="true"
               >
                 {link.label}
                 {isActive && (
-                  <div className="absolute -bottom-5 left-0 right-0   h-0.5 bg-brand shadow-[0_0_10px_rgba(0,229,143,0.8)]" />
+                  <div className="absolute -bottom-5 left-0 right-0 h-0.5 bg-brand shadow-[0_0_10px_rgba(0,229,143,0.8)]" />
                 )}
               </Link>
             );
@@ -79,7 +93,7 @@ export default function Navbar({ variant = "landing", sticky = false }: NavbarPr
                 href="/signup"
                 className="bg-brand hover:bg-brand-hover text-black px-6 py-2.5 rounded-full text-[14px] font-bold transition-all shadow-[0_0_15px_rgba(0,229,143,0.15)] hover:shadow-[0_0_25px_rgba(0,229,143,0.3)] transform hover:-translate-y-0.5 inline-block"
               >
-                Get Started
+                Create account
               </Link>
             </>
           ) : (

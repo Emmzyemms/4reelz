@@ -12,9 +12,6 @@ async function getDashboardData() {
     apiClient.get("/platforms"),
   ]);
 
-  console.log("[DashboardPage] /videos response:", videosRes.data);
-  console.log("[DashboardPage] /platforms response:", platformsRes.data);
-
   const videos = videosRes.data.data || (Array.isArray(videosRes.data) ? videosRes.data : []);
   
   // Sum up clipsCount across all videos

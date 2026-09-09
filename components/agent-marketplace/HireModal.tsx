@@ -74,10 +74,8 @@ export default function HireModal({ agent, onClose }: HireModalProps) {
   const [txHash, setTxHash]     = useState<string | null>(null);
   const [jobId, setJobId]       = useState<string | null>(null);
   const [loading, setLoading]   = useState(false);
-  const [cloudinaryUrl, setCloudinaryUrl] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<"url" | "file">("file");
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  // Upload progress for direct file uploads (0–100, -1 = indeterminate)
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadLabel, setUploadLabel]       = useState<string>("");
 
@@ -297,12 +295,7 @@ export default function HireModal({ agent, onClose }: HireModalProps) {
         throw new Error("Failed to process video. Please try again.");
       }
 
-      // ── 9. Update job with Cloudinary URL (backend endpoint needed) ───────
-      // TODO: Call PATCH /api/jobs/:jobId with { videoUrl: cloudinaryUrl }
-      // This backend endpoint is required to update the job's video URL
-      // from the placeholder to the actual Cloudinary URL after upload
-      
-      // ── 10. Poll backend until it picks up the JobCreated event ──────────
+      // ── 9. Poll backend until it picks up the JobCreated event ──────────
       setStep("polling");
       const { getAgentJobs } = await import("@/lib/queries");
       let backendJobId: string | null = null;
@@ -806,7 +799,6 @@ export default function HireModal({ agent, onClose }: HireModalProps) {
                   setStep("form");
                   setErrorMsg("");
                   setTxHash(null);
-                  setCloudinaryUrl(null);
                   setUploadProgress(0);
                   setUploadLabel("");
                   resetYouTube();
