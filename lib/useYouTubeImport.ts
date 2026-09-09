@@ -202,7 +202,7 @@ async function uploadToBackend(
   const cloudinaryResult = await uploadToCloudinary(file, onProgress);
 
   // Step 2: register the video with the backend (tiny JSON, no proxy size issue)
-  const response = await apiClient.post("/videos", {
+  const response = await apiClient.post("/videos/register", {
     cloudinaryUrl: cloudinaryResult.secureUrl,
     publicId:      cloudinaryResult.publicId,
     title,
@@ -263,7 +263,7 @@ const INITIAL: YouTubeImportState = {
  *   1. Extract video ID from URL
  *   2. Get YouTube info from backend /videos/youtube-info/{videoId}
  *   3. Download video in browser from the provided downloadUrl (user's IP)
- *   4. Upload file to backend POST /videos
+ *   4. Upload file directly to Cloudinary, then register via POST /videos/register
  *   5. saveActiveJob + return { videoId, cloudinaryUrl }
  *
  * run() always returns the real error — never reads stale React state.
