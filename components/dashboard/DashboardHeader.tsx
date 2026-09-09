@@ -11,7 +11,11 @@ interface HeaderProps {
 
 export default function DashboardHeader({ onMenuClick }: HeaderProps) {
   const { user } = useAuth();
-  const firstName = user?.username || user?.profile?.username || user?.fullName?.split(" ")[0] || "there";
+  const firstName =
+    user?.username ||
+    user?.profile?.username ||
+    user?.fullName?.split(" ")[0] ||
+    (user?.bnbAddress ? "Wallet User" : "there");
 
   return (
     <header className="w-full border-b border-white/[0.03]">

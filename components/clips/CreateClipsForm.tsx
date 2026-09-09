@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import apiClient from "@/lib/apiClient";
 import { saveActiveJob } from "@/lib/processingStore";
+import { uploadToCloudinary } from "@/lib/uploadToCloudinary";
 
 export default function CreateClipsForm() {
   const router       = useRouter();
@@ -59,18 +60,25 @@ export default function CreateClipsForm() {
     setError("");
     setUploadProgress(0);
     try {
-      const formData = new FormData();
-      formData.append("file",       selectedFile);
-      formData.append("title",      selectedFile.name.replace(/\.[^/.]+$/, ""));
-      formData.append("sourceType", "upload");
-      formData.append("style",      "viral");
+      // ── Step 1: Upload directly to Cloudinary from the browser ────────────
+      // This bypasses the Next.js proxy entirely, so Vercel's 4.5MB limit
+      // never applies — files of any size go straight to Cloudinary's CDN.
+      const cloudinaryResult = await uploadToCloudinary(selectedFile, (pct) => {
+        setUploadProgress(pct);
+      });
 
-      const response = await apiClient.post("/videos", formData, {
-        headers:          { "Content-Type": undefined },
-        onUploadProgress: (e) => {
-          if (e.total) setUploadProgress(Math.round((e.loaded * 100) / e.total));
-        },
-        timeout: 10 * 60 * 1000,
+      // ── Step 2: Register the video with the backend ───────────────────────
+      // The backend receives the Cloudinary URL + metadata (no raw file).
+      // This is a tiny JSON request — no size issues.
+      setUploadProgress(100);
+      const response = await apiClient.post("/videos/register", {
+        cloudinaryUrl: cloudinaryResult.secureUrl,
+        publicId:      cloudinaryResult.publicId,
+        title:         selectedFile.name.replace(/\.[^/.]+$/, ""),
+        sourceType:    "upload",
+        style:         "viral",
+        duration:      cloudinaryResult.duration,
+        bytes:         cloudinaryResult.bytes,
       });
 
       const data    = response.data;
@@ -78,7 +86,6 @@ export default function CreateClipsForm() {
       if (!videoId) throw new Error("Failed to get video ID from response.");
 
       setUploadState("processing");
-      setUploadProgress(100);
       saveActiveJob(String(videoId));
       router.push(`/dashboard/processing?videoId=${videoId}`);
     } catch (err: any) {
@@ -87,7 +94,7 @@ export default function CreateClipsForm() {
       if (Array.isArray(msg)) msg = (msg as string[])[0];
       if (status === 401)      msg = "Session expired — redirecting to login…";
       else if (status === 429) msg = "Upload limit reached. Please wait a moment.";
-      else if (status === 400) msg = "Invalid file. Use MP4, MOV, AVI, WEBM or MPEG under 2GB.";
+      else if (status === 400) msg = "Invalid file. Use MP4, MOV, AVI, WEBM or MPEG.";
       else if (status === 500) msg = "Server error during upload. Please try again shortly.";
       setError(msg);
       setUploadState(selectedFile ? "ready" : "idle");
@@ -183,17 +190,20 @@ export default function CreateClipsForm() {
           {loading && uploadProgress > 0 && uploadProgress < 100 && (
             <div className="space-y-2">
               <div className="flex justify-between text-[12px] font-bold text-[#5A6F65]">
-                <span>Uploading to server…</span>
-                <span className="text-brand">{uploadProgress}%</span>
+                <span>Uploading to Cloudinary…</span>
+                <span className="text-brand">{uploadProgress >= 0 ? `${uploadProgress}%` : "…"}</span>
               </div>
               <div className="h-2 bg-[#0B100E] rounded-full overflow-hidden border border-white/5">
                 <div
                   className="h-full bg-brand rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(0,229,143,0.4)]"
-                  style={{ width: `${uploadProgress}%` }}
+                  style={{
+                    width:   uploadProgress >= 0 ? `${uploadProgress}%` : "100%",
+                    opacity: uploadProgress < 0  ? 0.35 : 1,
+                  }}
                 />
               </div>
               <p className="text-[11px] text-[#3A4A43] text-center">
-                Large files may take a moment — do not close this tab
+                Uploading directly — do not close this tab
               </p>
             </div>
           )}

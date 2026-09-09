@@ -110,10 +110,17 @@ export default function AuthForm({ mode = "login" }: AuthFormProps) {
         signature,
       });
 
+      // Re-fetch /users/me to confirm the session cookie is readable before
+      // navigating. Email login does the same thing — without this the guard
+      // in AuthProvider can see user=null on the dashboard route and bounce
+      // back to /login before the cookie propagates.
+      setInfo("Loading your account…");
+      const { data: user } = await apiClient.get("/users/me");
+
       // Push to destination — AuthProvider's effect handles the actual
       // router.push *after* user state commits, so no race condition.
       const destination = loginRes.data.redirect ?? "/dashboard";
-      setUser(loginRes.data.user, destination);
+      setUser(user, destination);
     } catch (err: any) {
       console.error("BNB wallet auth error:", err);
       const backendMessage =

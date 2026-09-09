@@ -7,6 +7,7 @@ import { useAuth } from "./AuthProvider";
 import { LogOut, Bell, Zap, Menu } from "lucide-react";
 import Logo from "@/components/shared/Logo";
 import UserAvatar from "@/components/shared/UserAvatar";
+import { truncateAddress } from "@/lib/bnbWallet";
 
 interface NavbarProps {
   variant?: "landing" | "dashboard";
@@ -113,9 +114,15 @@ export default function Navbar({ variant = "landing", sticky = false }: NavbarPr
               <div className="relative flex items-center gap-3 pl-4 border-l border-white/10" ref={dropdownRef}>
                 <div className="hidden sm:flex flex-col items-end">
                   <span className="text-[13px] font-bold text-white leading-none mb-1">
-                    {user?.username || user?.profile?.username || user?.fullName || "User"}
+                    {user?.username || user?.profile?.username || user?.fullName || (user?.bnbAddress ? "Wallet User" : "User")}
                   </span>
-                  <span className="text-[11px] font-medium text-brand/80">Pro Creator</span>
+                  <span className="text-[11px] font-medium text-brand/80 font-mono tracking-wide">
+                    {user?.email
+                      ? user.email
+                      : user?.bnbAddress
+                        ? truncateAddress(user.bnbAddress)
+                        : "Pro Creator"}
+                  </span>
                 </div>
                 <button onClick={() => setDropdownOpen(!dropdownOpen)}>
                   <UserAvatar user={user} className="hover:border-brand/40 transition-colors cursor-pointer group" />

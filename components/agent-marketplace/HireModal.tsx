@@ -14,6 +14,7 @@ import { truncateAddress, bscscanTxUrl, BNB_CHAIN_ID, ACTIVE_CHAIN } from "@/lib
 import { useYouTubeImport, isYouTubeUrl } from "@/lib/useYouTubeImport";
 import { saveActiveJob } from "@/lib/processingStore";
 import apiClient from "@/lib/apiClient";
+import { uploadToCloudinary } from "@/lib/uploadToCloudinary";
 import AgentJobStatus from "./AgentJobStatus";
 
 // ─── Contract constants ───────────────────────────────────────────────────────
@@ -196,69 +197,40 @@ export default function HireModal({ agent, onClose }: HireModalProps) {
       
       let videoIdResult: string | null = null;
       
-      // ── File upload: upload directly to backend with XHR progress tracking
+      // ── File upload: upload directly to Cloudinary, then register with backend
       if (inputMode === "file" && videoFile) {
         setUploadProgress(0);
         setUploadLabel("Uploading video…");
 
-        videoIdResult = await new Promise<string | null>((resolve, reject) => {
-          const formData = new FormData();
-          formData.append("file", videoFile);
-          formData.append("title", videoFile.name);
-          formData.append("sourceType", "upload");
-          formData.append("style", style);
-
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", "/api/proxy/videos", true);
-          xhr.withCredentials = true;
-
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100);
-              setUploadProgress(pct);
-              setUploadLabel(`Uploading… ${pct}%`);
-            } else {
-              setUploadProgress(-1);
-              setUploadLabel("Uploading video…");
-            }
-          };
-
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                const data = JSON.parse(xhr.responseText);
-                const vid =
-                  data?.video?.id ?? data?.id ?? data?.data?.id ?? data?.videoId ?? null;
-                if (!vid) {
-                  reject(new Error("Upload succeeded but no video ID was returned."));
-                } else {
-                  setUploadLabel("Upload complete!");
-                  resolve(String(vid));
-                }
-              } catch {
-                reject(new Error("Could not parse upload response."));
-              }
-            } else {
-              let msg = `Upload failed (${xhr.status}).`;
-              try {
-                const raw = JSON.parse(xhr.responseText)?.message;
-                msg = Array.isArray(raw) ? raw[0] : raw ?? msg;
-              } catch { /* keep default */ }
-              reject(new Error(msg));
-            }
-          };
-
-          xhr.onerror = () => reject(new Error("Network error while uploading video."));
-          xhr.onabort = () => reject(new Error("Upload was cancelled."));
-          xhr.send(formData);
+        // Step 1: browser → Cloudinary (no Vercel proxy, no size limit)
+        const cloudinaryResult = await uploadToCloudinary(videoFile, (pct) => {
+          setUploadProgress(pct);
+          setUploadLabel(pct >= 0 ? `Uploading… ${pct}%` : "Uploading video…");
         });
-        
+
+        setUploadLabel("Registering with server…");
+
+        // Step 2: tell the backend about the uploaded video (tiny JSON)
+        const response = await apiClient.post("/videos/register", {
+          cloudinaryUrl: cloudinaryResult.secureUrl,
+          publicId:      cloudinaryResult.publicId,
+          title:         videoFile.name,
+          sourceType:    "upload",
+          style,
+          duration:      cloudinaryResult.duration,
+          bytes:         cloudinaryResult.bytes,
+        });
+
+        const data = response.data;
+        videoIdResult =
+          data?.video?.id ?? data?.id ?? data?.data?.id ?? data?.videoId ?? null;
+
         if (videoIdResult) {
+          setUploadLabel("Upload complete!");
           saveActiveJob(String(videoIdResult));
-          // Redirect to processing page to see AI clipping progress
           onClose();
           router.push(`/dashboard/processing?videoId=${videoIdResult}`);
-          return; // Exit early - no need to poll backend for agent job
+          return;
         }
       }
       // YouTube: use browser-side download
@@ -604,7 +576,7 @@ export default function HireModal({ agent, onClose }: HireModalProps) {
                       {videoFile?.name && (
                         <span className="truncate block max-w-xs mx-auto">{videoFile.name}</span>
                       )}
-                      Payment confirmed — uploading your file to the AI agent
+                      Payment confirmed — uploading directly to Cloudinary
                     </p>
                   </div>
                   <div className="w-full space-y-2">

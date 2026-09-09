@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { saveActiveJob } from "@/lib/processingStore";
 import apiClient from "@/lib/apiClient";
+import { uploadToCloudinary } from "@/lib/uploadToCloudinary";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -186,60 +187,43 @@ function downloadVideo(
   });
 }
 
-// ─── Upload to backend ───────────────────────────────────────────────────────
+// ─── Upload to Cloudinary then register with backend ─────────────────────────
+//
+// Previously this sent the raw file through /api/proxy/videos (hitting Vercel's
+// 4.5MB limit). Now the browser uploads directly to Cloudinary — no size cap —
+// then tells the backend the Cloudinary URL so it can start AI processing.
 
-function uploadToBackend(
+async function uploadToBackend(
   file: File,
   title: string,
   onProgress: (pct: number) => void
 ): Promise<{ videoId: string; cloudinaryUrl: string }> {
-  return new Promise((resolve, reject) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("title", title);
-    formData.append("sourceType", "upload");
-    formData.append("style", "viral");
+  // Step 1: upload directly to Cloudinary from the browser
+  const cloudinaryResult = await uploadToCloudinary(file, onProgress);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/proxy/videos", true);
-    xhr.withCredentials = true;
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          const videoId =
-            data?.video?.id ?? data?.id ?? data?.data?.id ?? data?.videoId ?? null;
-          const cloudinaryUrl =
-            data?.video?.url ?? data?.url ?? data?.data?.url ?? data?.cloudinaryUrl ?? null;
-          if (!videoId) {
-            reject(new Error("Upload succeeded but no video ID was returned."));
-          } else {
-            resolve({ videoId: String(videoId), cloudinaryUrl: cloudinaryUrl ?? "" });
-          }
-        } catch {
-          reject(new Error("Could not parse upload response."));
-        }
-      } else {
-        let msg = `Upload failed (${xhr.status}).`;
-        try {
-          const raw = JSON.parse(xhr.responseText)?.message;
-          msg = Array.isArray(raw) ? raw[0] : raw ?? msg;
-        } catch { /* keep default */ }
-        reject(new Error(msg));
-      }
-    };
-
-    xhr.onerror = () => reject(new Error("Network error while uploading video."));
-    xhr.onabort = () => reject(new Error("Upload was cancelled."));
-    xhr.send(formData);
+  // Step 2: register the video with the backend (tiny JSON, no proxy size issue)
+  const response = await apiClient.post("/videos/register", {
+    cloudinaryUrl: cloudinaryResult.secureUrl,
+    publicId:      cloudinaryResult.publicId,
+    title,
+    sourceType:    "upload",
+    style:         "viral",
+    duration:      cloudinaryResult.duration,
+    bytes:         cloudinaryResult.bytes,
   });
+
+  const data = response.data;
+  const videoId =
+    data?.video?.id ?? data?.id ?? data?.data?.id ?? data?.videoId ?? null;
+  const cloudinaryUrl =
+    data?.video?.url ?? data?.url ?? data?.data?.url ?? data?.cloudinaryUrl
+    ?? cloudinaryResult.secureUrl; // fall back to Cloudinary's own URL
+
+  if (!videoId) {
+    throw new Error("Upload succeeded but no video ID was returned.");
+  }
+
+  return { videoId: String(videoId), cloudinaryUrl };
 }
 
 // ─── Phase labels ─────────────────────────────────────────────────────────────
@@ -252,7 +236,7 @@ function labelFor(phase: YouTubeImportPhase, progress: number): string {
         ? `Downloading video… ${progress}%`
         : "Downloading video…";
     case "uploading":
-      return `Uploading to server… ${progress}%`;
+      return `Uploading to Cloudinary… ${progress}%`;
     case "done":  return "Upload complete!";
     case "error": return "Import failed";
     default:      return "";

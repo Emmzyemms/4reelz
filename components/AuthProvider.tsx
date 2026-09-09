@@ -54,6 +54,10 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   // Pending destination set by setUser — AuthProvider pushes after state commits.
   const pendingRedirectRef = useRef<string | null>(null);
+  // Set to true when a post-login navigation is in flight.
+  // Prevents the guard from seeing user=null on the new route (while the
+  // session cookie fetch is still in progress) and bouncing back to /login.
+  const isNavigatingRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -91,6 +95,19 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
         router.push(dest);
       }
       return;
+    }
+
+    // If a post-login navigation is in flight and the user state hasn't
+    // committed yet, don't redirect back to /login. The fetchUser on the
+    // new route will resolve the user and clear this flag.
+    if (isNavigatingRef.current) {
+      if (user) {
+        // User confirmed — safe to clear the in-flight flag
+        isNavigatingRef.current = false;
+      } else {
+        // Still waiting for session to resolve — hold off
+        return;
+      }
     }
 
     const guestPaths = ["/login", "/signup", "/"];
@@ -138,6 +155,9 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
     if (typeof redirectTo === "string") {
       // Store destination — the useEffect above will push once state commits.
       pendingRedirectRef.current = redirectTo;
+      // Mark a navigation as in-flight so the guard doesn't redirect to /login
+      // while the session cookie is still propagating on the destination route.
+      isNavigatingRef.current = true;
     } else if (redirectTo === false) {
       // Caller is handling navigation; suppress the guard for this render.
       pendingRedirectRef.current = "__suppress__";

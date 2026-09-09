@@ -18,6 +18,7 @@ import { useAuth } from "@/components/AuthProvider";
 import Logo from "@/components/shared/Logo";
 import UserAvatar from "@/components/shared/UserAvatar";
 import apiClient from "@/lib/apiClient";
+import { truncateAddress } from "@/lib/bnbWallet";
 
 // Fetch total clip count — reuses the same cache key as the dashboard query
 // so no extra network request is made when the dashboard has already loaded.
@@ -124,10 +125,14 @@ export default function DashboardSidebar({ isOpen, onClose }: SidebarProps) {
           <UserAvatar user={user} />
           <div className="flex-1 min-w-0">
             <div className="text-[14px] font-bold text-white truncate">
-              {user?.username || user?.profile?.username || user?.fullName || ""}
+              {user?.username || user?.profile?.username || user?.fullName || (user?.bnbAddress ? "Wallet User" : "User")}
             </div>
-            <div className="text-[11px] text-[#5A6F65] truncate">
-              {user?.email || ""}
+            <div className="text-[11px] text-[#5A6F65] truncate font-mono tracking-wide">
+              {user?.email
+                ? user.email
+                : user?.bnbAddress
+                  ? truncateAddress(user.bnbAddress)
+                  : ""}
             </div>
           </div>
           <button 
