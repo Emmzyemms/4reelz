@@ -5,10 +5,8 @@ import axios from 'axios';
 // On client: use the Next.js proxy route
 const getApiBaseUrl = () => {
   if (typeof window === 'undefined') {
-    // Server side: call backend directly
     return process.env.API_URL;
   }
-  // Client side: always use the proxy route to avoid CORS errors
   return '/api/proxy';
 };
 
@@ -16,48 +14,79 @@ const API_BASE_URL = getApiBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: typeof window !== 'undefined', // Only on client side
+  withCredentials: typeof window !== 'undefined',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Response interceptor for auto-refreshing tokens (only on client side)
+// ─── Token refresh lock ───────────────────────────────────────────────────────
+// Ensures only one refresh request is in-flight at a time.
+// All 401s that arrive while a refresh is pending share the same promise
+// instead of each firing their own refresh call.
+let refreshPromise: Promise<void> | null = null;
+
+function refreshToken(): Promise<void> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = apiClient
+    .post('/auths/refresh')
+    .then(() => {
+      refreshPromise = null;
+    })
+    .catch((err) => {
+      refreshPromise = null;
+      throw err;
+    });
+
+  return refreshPromise;
+}
+
+// ─── Response interceptor ─────────────────────────────────────────────────────
 if (typeof window !== 'undefined') {
   apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
       const originalRequest = error.config;
 
-      // If error doesn't have config (e.g. network error), just reject
-      if (!originalRequest) {
+      // No config means a network-level error — nothing to retry.
+      if (!originalRequest) return Promise.reject(error);
+
+      const status: number = error.response?.status ?? 0;
+      const url: string = originalRequest.url ?? '';
+
+      // Never retry the refresh endpoint itself, and never retry wallet auth
+      // endpoints (a 401 there means "no account / bad signature", not an
+      // expired token).
+      const isRefreshCall = url.includes('/auths/refresh');
+      const isWalletAuth  =
+        url.includes('/auths/wallet/') || url.includes('/auth/bnb/');
+
+      // If the refresh endpoint itself fails (any status), redirect to login
+      // immediately — do NOT retry. This is the key fix for the 503 loop.
+      if (isRefreshCall) {
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
         return Promise.reject(error);
       }
 
-      // If error is 401 and we haven't retried yet.
-      // Skip refresh for wallet auth endpoints — a 401 there means
-      // "no account found" or "bad signature", not an expired token.
-      const isWalletAuth =
-        originalRequest.url?.includes('/auths/wallet/') ||
-        originalRequest.url?.includes('/auth/bnb/');
-      if (
-        error.response?.status === 401 &&
-        !originalRequest._retry &&
-        originalRequest.url !== '/auths/refresh' &&
-        !isWalletAuth
-      ) {
+      // Only attempt a token refresh on 401, once per original request.
+      if (status === 401 && !originalRequest._retry && !isWalletAuth) {
         originalRequest._retry = true;
         try {
-          // Refresh also goes through our proxy
-          await apiClient.post('/auths/refresh');
+          await refreshToken(); // shared promise — deduplicates concurrent 401s
           return apiClient(originalRequest);
-        } catch (refreshError) {
-          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        } catch {
+          // Refresh failed — redirect to login (refreshToken() already cleared
+          // the lock so the next login attempt starts fresh).
+          if (window.location.pathname !== '/login') {
             window.location.href = '/login';
           }
-          return Promise.reject(refreshError);
+          return Promise.reject(error);
         }
       }
+
       return Promise.reject(error);
     }
   );
