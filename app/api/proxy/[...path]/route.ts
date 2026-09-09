@@ -110,6 +110,12 @@ async function handler(req: NextRequest) {
         newCookie += '; SameSite=Lax';
       }
 
+      // Ensure Secure in production — browsers require this for cookies over HTTPS.
+      // Without it the browser silently drops the cookie, causing missing refresh tokens.
+      if (process.env.NODE_ENV === 'production' && !newCookie.match(/;\s*Secure/i)) {
+        newCookie += '; Secure';
+      }
+
       responseHeaders.append('set-cookie', newCookie);
     });
   }
