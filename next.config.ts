@@ -7,6 +7,13 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig: NextConfig = {
+  // Allow arbitrarily large request/response bodies through API routes.
+  // Needed for video uploads which can be several GB.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '4gb',
+    },
+  },
   images: {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",

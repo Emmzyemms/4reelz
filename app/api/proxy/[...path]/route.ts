@@ -5,6 +5,12 @@ import { cookies } from 'next/headers';
 // Without this, Next.js buffers and size-limits request bodies (bad for uploads/SSE).
 export const dynamic = 'force-dynamic';
 
+// Allow large file uploads (videos can be several GB).
+// maxDuration: maximum seconds Vercel will keep the function alive (Pro plan max is 300s).
+// preferredRegion: keeps the proxy close to the backend to reduce transfer time.
+export const maxDuration = 300;
+export const runtime = 'nodejs';
+
 async function handler(req: NextRequest) {
   const BACKEND_URL = process.env.API_URL;
 
