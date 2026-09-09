@@ -71,7 +71,7 @@ export default function CreateClipsForm() {
       // The backend receives the Cloudinary URL + metadata (no raw file).
       // This is a tiny JSON request — no size issues.
       setUploadProgress(100);
-      const response = await apiClient.post("/videos/register", {
+      const response = await apiClient.post("/videos", {
         cloudinaryUrl: cloudinaryResult.secureUrl,
         publicId:      cloudinaryResult.publicId,
         title:         selectedFile.name.replace(/\.[^/.]+$/, ""),

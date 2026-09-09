@@ -211,7 +211,7 @@ export default function HireModal({ agent, onClose }: HireModalProps) {
         setUploadLabel("Registering with server…");
 
         // Step 2: tell the backend about the uploaded video (tiny JSON)
-        const response = await apiClient.post("/videos/register", {
+        const response = await apiClient.post("/videos", {
           cloudinaryUrl: cloudinaryResult.secureUrl,
           publicId:      cloudinaryResult.publicId,
           title:         videoFile.name,

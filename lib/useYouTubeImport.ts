@@ -202,7 +202,7 @@ async function uploadToBackend(
   const cloudinaryResult = await uploadToCloudinary(file, onProgress);
 
   // Step 2: register the video with the backend (tiny JSON, no proxy size issue)
-  const response = await apiClient.post("/videos/register", {
+  const response = await apiClient.post("/videos", {
     cloudinaryUrl: cloudinaryResult.secureUrl,
     publicId:      cloudinaryResult.publicId,
     title,
