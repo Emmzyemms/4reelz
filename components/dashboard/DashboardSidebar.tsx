@@ -24,11 +24,23 @@ import { truncateAddress } from "@/lib/bnbWallet";
 // so no extra network request is made when the dashboard has already loaded.
 async function fetchClipCount(): Promise<number> {
   try {
-    const res = await apiClient.get("/clips?page=1&limit=1");
-    // Backend returns { data: [...], total, page, limit } or plain array
-    if (typeof res.data.total === "number") return res.data.total;
-    if (Array.isArray(res.data)) return res.data.length;
-    if (Array.isArray(res.data.data)) return res.data.total ?? res.data.data.length;
+    // Use limit=5 so we get a real data array to count from as a fallback,
+    // in case the backend returns total:0 with a non-empty data array.
+    const res = await apiClient.get("/clips?page=1&limit=5");
+    const d = res.data;
+
+    // Shape 1: { data: [...], total: number }
+    if (typeof d?.total === "number" && d.total > 0) return d.total;
+
+    // Shape 2: plain array  [ clip, clip, ... ]
+    if (Array.isArray(d) && d.length > 0) return d.length;
+
+    // Shape 3: { data: [...] } — count the array items directly
+    if (Array.isArray(d?.data) && d.data.length > 0) return d.total ?? d.data.length;
+
+    // Shape 4: total exists but is 0 — trust it
+    if (typeof d?.total === "number") return d.total;
+
     return 0;
   } catch {
     return 0;
@@ -60,8 +72,16 @@ export default function DashboardSidebar({ isOpen, onClose }: SidebarProps) {
     queryFn: fetchClipCount,
     // Only run when a session exists — avoids a 401 during the auth check on mount
     enabled: !!user,
-    staleTime: 60_000,
+    // No stale time — always re-fetch when invalidated (e.g. after processing completes)
+    staleTime: 0,
     refetchOnWindowFocus: true,
+    // Poll every 5 s while the user has no clips yet so the Projects link
+    // appears immediately after generation without needing a manual refresh.
+    refetchInterval: (query) => {
+      const count = query.state.data;
+      // Keep polling until we confirm clips exist; stop once they do
+      return typeof count === "number" && count > 0 ? false : 5_000;
+    },
   });
 
   const hasClips = clipCount > 0;

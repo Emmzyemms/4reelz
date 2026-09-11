@@ -12,7 +12,7 @@ export default function Home() {
         <div className="flex-1 space-y-8 max-w-[580px]">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand/[0.12] border border-brand/20 text-brand text-[11px] font-bold tracking-[0.1em] uppercase">
             <span className="w-2 h-2 rounded-full bg-brand" style={{ boxShadow: "0 0 10px #00E58F" }} />
-            AI CLIPPING V1.0 IS LIVE
+            AI CLIPPING V1.0 IS LIVE ON TESTNET
           </div>
           
           <h1 className="text-[64px] font-extrabold leading-[1.05] tracking-tight">

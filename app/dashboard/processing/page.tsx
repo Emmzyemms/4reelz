@@ -110,8 +110,11 @@ function ProcessingContent() {
       try {
         const clips = await getProjectsData(vid);
         queryClient.setQueryData(["projectsData", vid], clips);
-        queryClient.invalidateQueries({ queryKey: ["sidebarClipCount"] });
       } catch { /* non-fatal */ }
+
+      // Always invalidate — even if clip prefetch failed the sidebar must update.
+      // This runs outside the try block so a getProjectsData failure can't prevent it.
+      queryClient.invalidateQueries({ queryKey: ["sidebarClipCount"] });
 
       router.push(`/projects?videoId=${vid}`);
     };
@@ -458,7 +461,7 @@ export default function ProcessingPage() {
       </Suspense>
 
       <footer className="w-full flex flex-col md:flex-row items-center justify-between px-10 py-8 border-t border-white/5 mt-auto bg-transparent relative z-10 gap-4">
-        <p className="text-gray-500 text-xs font-medium">© 2024 ClipCash AI. All rights reserved.</p>
+        <p className="text-gray-500 text-xs font-medium">© 2024 4Reelzclip. All rights reserved.</p>
         <div className="flex items-center gap-8">
           <Link href="/privacy" className="text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors">Privacy Policy</Link>
           <Link href="/terms"   className="text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors">Terms of Service</Link>

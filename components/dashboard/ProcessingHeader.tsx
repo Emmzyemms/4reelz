@@ -14,7 +14,7 @@ export default function ProcessingHeader() {
       {/* Logo */}
       <div className="flex items-center gap-3">
         <Logo variant="simple" />
-        <span className="text-white font-bold text-xl tracking-tight">ClipCash AI</span>
+        <span className="text-white font-bold text-xl tracking-tight">4Reelzclip</span>
       </div>
 
       {/* Nav */}

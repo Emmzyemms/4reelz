@@ -29,7 +29,7 @@ import {
   BNB_CHAIN_ID,
 } from "@/lib/bnbWallet";
 
-const STORAGE_KEY = "clipcash_bnb_address";
+const STORAGE_KEY = "4reelzclip_bnb_address";
 
 interface WalletContextType {
   address: string | null;

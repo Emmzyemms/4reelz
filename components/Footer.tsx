@@ -25,10 +25,10 @@ export default function Footer() {
               <div className="w-4 h-4 bg-brand rounded-[4px] flex items-center justify-center text-black text-[9px]">
                 ⚡
               </div>
-               4Reelz
+               4Reelzclip
             </div>
             <div className="text-[12px] text-[#5b6b63] font-medium">
-              © 2026 4Reelz AI. All rights reserved.
+              © 2026 4Reelzclip. All rights reserved.
             </div>
           </div>
           <div className="flex items-center gap-6 text-[12px] text-[#5b6b63] font-medium">

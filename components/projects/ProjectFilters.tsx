@@ -46,7 +46,7 @@ export default function ProjectFilters({
             <div className="w-[32px] h-[32px] bg-brand rounded-[10px] flex items-center justify-center text-black text-[18px] group-hover:scale-110 transition-transform">
               ⚡
             </div>
-            <span>ClipCash <span className="text-brand">AI</span></span>
+            <span>4Reelzclip</span>
           </Link>
 
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-[13px] font-bold text-[#5A6F65] hover:text-white transition-colors group">

@@ -177,7 +177,7 @@ function AuthProviderInner({ children }: { children: React.ReactNode }) {
         // ignore
       }
       if (typeof window !== "undefined") {
-        localStorage.removeItem("clipcash_bnb_address");
+        localStorage.removeItem("4reelzclip_bnb_address");
       }
       setUserState(null);
       router.push("/login");

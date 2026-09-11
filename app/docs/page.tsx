@@ -222,7 +222,7 @@ export default function DocsPage() {
             Documentation
           </div>
           <h1 className="text-[52px] font-extrabold leading-[1.05] tracking-tight">
-            How 4Reelz works
+            How 4Reelzclip works
           </h1>
           <p className="text-[#a1a1aa] text-lg max-w-[620px] leading-[1.6]">
             Everything you need to know about turning long-form videos into viral short clips — from account setup to posting across platforms.

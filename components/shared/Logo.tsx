@@ -34,7 +34,7 @@ export default function Logo({ variant = "full", className = "" }: LogoProps) {
       <div className="w-[30px] h-[30px] bg-brand rounded-[8px] flex items-center justify-center text-black text-[16px]">
         ⚡
       </div>
-      4Reelz
+      4Reelzclip
     </Link>
   );
 }
